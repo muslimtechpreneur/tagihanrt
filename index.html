@@ -1,0 +1,430 @@
+<!DOCTYPE html>\n<html lang="id"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Tagihan Internet RT/RW (Offline)</title>
+    <!-- Menggunakan versi Font Awesome yang lebih baru dan Chart.js -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Library untuk membaca dan menulis file Excel (XLSX) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Library untuk membuat gambar dari elemen HTML -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+<link rel="stylesheet" href="style.css"><link rel="manifest" href="manifest.webmanifest"></head>
+<body>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo-container">
+                    <div class="logo" id="headerLogo">TI</div>
+                    <div class="app-title" id="headerTitle">Tagihan Internet</div>
+                </div>
+                <div class="header-actions">
+                    <button class="header-btn" id="refreshBtn" title="Segarkan Data">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container">
+        <!-- Dashboard -->
+        <div class="page active" id="dashboardPage">
+            <h2 class="page-title">Dashboard</h2>
+            <div class="dashboard-cards">
+                <!-- Card Pelanggan Aktif -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Pelanggan Aktif</div>
+                        <div class="card-icon primary"><i class="fas fa-users"></i></div>
+                    </div>
+                    <div class="card-value" id="totalCustomers">0</div>
+                    <div class="card-description">Total pelanggan terdaftar</div>
+                </div>
+                <!-- Card Tagihan Bulan Ini -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Tagihan Bulan Ini</div>
+                        <div class="card-icon warning"><i class="fas fa-file-invoice-dollar"></i></div>
+                    </div>
+                    <div class="card-value" id="currentMonthBills">0</div>
+                    <div class="card-description">Total tagihan di bulan berjalan</div>
+                </div>
+                <!-- Card Pemasukan Bulan Ini -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Pemasukan Bulan Ini</div>
+                        <div class="card-icon success"><i class="fas fa-money-bill-wave"></i></div>
+                    </div>
+                    <div class="card-value" id="monthlyIncome">Rp 0</div>
+                    <div class="card-description">Total pembayaran lunas bulan ini</div>
+                </div>
+                <!-- Card Status Pembayaran -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Status Pembayaran</div>
+                        <div class="card-icon danger"><i class="fas fa-chart-pie"></i></div>
+                    </div>
+                    <div class="card-value" id="paymentStatus">0%</div>
+                    <div class="card-description">Persentase lunas bulan ini</div>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="paymentChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Pelanggan -->
+        <div class="page" id="customersPage">
+            <h2 class="page-title">Manajemen Pelanggan</h2>
+            <div class="search-container">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" class="search-input" id="customerSearch" placeholder="Cari nama atau nomor WhatsApp...">
+            </div>
+            <div class="btn-group" style="margin-bottom: 20px;">
+                <button class="btn btn-primary" id="addCustomerBtn">
+                    <i class="fas fa-plus"></i> Tambah Pelanggan
+                </button>
+                <button class="btn btn-success" id="importCustomersBtn">
+                    <i class="fas fa-file-excel"></i> Impor dari Excel
+                </button>
+            </div>
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Nama</th><th>WhatsApp</th><th>Paket</th><th>Biaya/Bulan</th><th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customersTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tagihan -->
+        <div class="page" id="billsPage">
+            <h2 class="page-title">Manajemen Tagihan</h2>
+            <div class="filter-section">
+                <div class="filter-label">Filter:</div>
+                <select class="filter-control" id="billMonth"></select>
+                <select class="filter-control" id="billYear"></select>
+                <button class="btn btn-primary" id="filterBillsBtn" title="Terapkan Filter">
+                    <i class="fas fa-filter"></i>
+                </button>
+            </div>
+            <div class="btn-group" style="margin-bottom: 20px;">
+                 <button class="btn btn-info" id="generateBillsBtn">
+                    <i class="fas fa-bolt"></i> Buat Tagihan Massal
+                </button>
+                <button class="btn btn-success" id="broadcastBtn">
+                    <i class="fab fa-whatsapp"></i> Broadcast Tagihan
+                </button>
+            </div>
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selectAllCheckbox"></th>
+                            <th>Nama</th><th>Paket</th><th>Biaya</th><th>Status</th><th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="billsTableBody"></tbody>
+                </table>
+                 <div class="btn-group" style="margin-top: 10px;">
+                    <button class="btn btn-success" id="markAsPaidBtn">Tandai Lunas</button>
+                    <button class="btn btn-warning" id="markAsUnpaidBtn">Tandai Belum Lunas</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Laporan -->
+        <div class="page" id="reportsPage">
+            <h2 class="page-title">Laporan Keuangan</h2>
+             <div class="filter-section">
+                <div class="filter-label">Filter:</div>
+                <select class="filter-control" id="reportMonth"></select>
+                <select class="filter-control" id="reportYear"></select>
+                <button class="btn btn-primary" id="filterReportBtn" title="Terapkan Filter">
+                    <i class="fas fa-filter"></i>
+                </button>
+                 <button class="btn btn-success" id="exportReportBtn">
+                    <i class="fas fa-file-excel"></i> Ekspor Laporan
+                </button>
+            </div>
+            <div class="dashboard-cards">
+                <!-- Cards for report summary -->
+                <div class="card">
+                    <div class="card-title">Total Pemasukan</div>
+                    <div class="card-value" id="reportTotalIncome">Rp 0</div>
+                </div>
+                 <div class="card">
+                    <div class="card-title">Tagihan Lunas</div>
+                    <div class="card-value" id="reportPaidBills">0</div>
+                </div>
+                 <div class="card">
+                    <div class="card-title">Tagihan Belum Lunas</div>
+                    <div class="card-value" id="reportUnpaidBills">0</div>
+                </div>
+                 <div class="card">
+                    <div class="card-title">% Pembayaran</div>
+                    <div class="card-value" id="reportPaymentPercentage">0%</div>
+                </div>
+            </div>
+            <div class="table-container">
+                <table class="table" id="reportTable">
+                    <thead>
+                        <tr>
+                            <th>Nama</th><th>Paket</th><th>Biaya</th><th>Status</th><th>Tgl. Input</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pengaturan -->
+        <div class="page" id="settingsPage">
+            <h2 class="page-title">Pengaturan</h2>
+            <!-- Card Info Usaha -->
+            <div class="card">
+                <h3 class="card-title" style="font-size: 18px; margin-bottom: 15px;">Informasi Usaha</h3>
+                <div class="form-group">
+                    <label class="form-label" for="businessName">Nama Usaha</label>
+                    <input type="text" class="form-control" id="businessName" placeholder="Contoh: Maju Jaya Net">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="businessLogo">Logo Usaha</label>
+                    <input type="file" class="form-control" id="businessLogo" accept="image/*">
+                </div>
+                <button class="btn btn-primary" id="saveBusinessInfoBtn">
+                    <span class="spinner"></span><span class="btn-text"><i class="fas fa-save"></i> Simpan Info</span>
+                </button>
+            </div>
+             <!-- Card Manajemen Paket Internet -->
+            <div class="card" style="margin-top: 20px;">
+                 <h3 class="card-title" style="font-size: 18px; margin-bottom: 15px;">Manajemen Paket Internet</h3>
+                 <div class="table-container" style="margin-top: 0;">
+                    <table class="table">
+                        <thead>
+                            <tr><th>Nama Paket</th><th>Biaya (Rp)</th><th>Aksi</th></tr>
+                        </thead>
+                        <tbody id="packagesTableBody"></tbody>
+                    </table>
+                 </div>
+                 <button class="btn btn-primary" id="addPackageBtn"><i class="fas fa-plus"></i> Tambah Paket</button>
+            </div>
+            <!-- Card Pengaturan Aplikasi -->
+            <div class="card" style="margin-top: 20px;">
+                 <h3 class="card-title" style="font-size: 18px; margin-bottom: 15px;">Aplikasi</h3>
+                <div class="form-group">
+                    <label class="form-label" for="whatsappMessage">Template Pesan WhatsApp</label>
+                    <textarea class="form-control" id="whatsappMessage" rows="5"></textarea>
+                    <small>Gunakan: [Nama], [Bulan], [Tahun], [Jumlah], [Status]</small>
+                </div>
+                 <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                    <label class="form-label" for="darkModeToggle" style="margin: 0;">Mode Gelap</label>
+                    <input type="checkbox" id="darkModeToggle">
+                </div>
+                 <button class="btn btn-primary" id="saveAppSettingsBtn">
+                     <span class="spinner"></span><span class="btn-text"><i class="fas fa-save"></i> Simpan Pengaturan</span>
+                 </button>
+            </div>
+            <!-- Card Manajemen Data -->
+            <div class="card" style="margin-top: 20px;">
+                 <h3 class="card-title" style="font-size: 18px; margin-bottom: 15px;">Manajemen Data (PENTING)</h3>
+                 <p style="font-size: 14px; color: var(--gray); margin-bottom: 15px;">
+                    Data Anda disimpan di browser ini. Lakukan backup secara berkala untuk mencegah kehilangan data.
+                 </p>
+                 <div class="btn-group">
+                    <button class="btn btn-success" id="backupDataBtn"><i class="fas fa-download"></i> Backup Data</button>
+                    <div class="file-input-wrapper">
+                        <button class="btn btn-warning"><i class="fas fa-upload"></i> Restore Data</button>
+                        <input type="file" id="restoreDataInput" accept=".json">
+                    </div>
+                    <button class="btn btn-danger" id="clearDataBtn"><i class="fas fa-trash-alt"></i> Hapus Semua Data</button>
+                 </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <div class="nav-item active" data-page="dashboardPage"><i class="fas fa-home nav-icon"></i><span class="nav-text">Dashboard</span></div>
+        <div class="nav-item" data-page="customersPage"><i class="fas fa-users nav-icon"></i><span class="nav-text">Pelanggan</span></div>
+        <div class="nav-item" data-page="billsPage"><i class="fas fa-file-invoice-dollar nav-icon"></i><span class="nav-text">Tagihan</span></div>
+        <div class="nav-item" data-page="reportsPage"><i class="fas fa-chart-bar nav-icon"></i><span class="nav-text">Laporan</span></div>
+        <div class="nav-item" data-page="settingsPage"><i class="fas fa-cog nav-icon"></i><span class="nav-text">Pengaturan</span></div>
+    </nav>
+
+    <!-- Modals -->
+    <!-- Customer Modal -->
+    <div class="modal" id="customerModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="customerModalTitle"></h3>
+                <button class="modal-close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="customerForm">
+                    <input type="hidden" id="customerId">
+                    <div class="form-group">
+                        <label class="form-label" for="customerName">Nama Lengkap</label>
+                        <input type="text" class="form-control" id="customerName" required="">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="customerWhatsapp">No. WhatsApp (diawali 62)</label>
+                        <input type="number" class="form-control" id="customerWhatsapp" placeholder="Contoh: 628123456789" required="">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="customerPackage">Paket Internet</label>
+                        <select class="form-control" id="customerPackage" required="">
+                            <option value="">Pilih Paket...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="customerFee">Biaya Bulanan (Rp)</label>
+                        <input type="number" class="form-control" id="customerFee" placeholder="Otomatis terisi setelah memilih paket" readonly="" required="">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline modal-close">Batal</button>
+                <button class="btn btn-primary" id="saveCustomerBtn">Simpan</button>
+            </div>
+        </div>
+    </div>
+    
+     <!-- Package Modal -->
+    <div class="modal" id="packageModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="packageModalTitle"></h3>
+                <button class="modal-close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="packageForm">
+                    <input type="hidden" id="packageId">
+                    <div class="form-group">
+                        <label class="form-label" for="packageName">Nama Paket</label>
+                        <input type="text" class="form-control" id="packageName" placeholder="Contoh: 10 Mbps" required="">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="packageFee">Biaya Bulanan (Rp)</label>
+                        <input type="number" class="form-control" id="packageFee" placeholder="Contoh: 150000" required="">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline modal-close">Batal</button>
+                <button class="btn btn-primary" id="savePackageBtn">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bill History Modal -->
+    <div class="modal" id="billHistoryModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Histori Tagihan</h3>
+                <button class="modal-close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Periode</th><th>Jumlah</th><th>Status</th><th>Tgl. Input</th>
+                            </tr>
+                        </thead>
+                        <tbody id="billHistoryTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline modal-close">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bill Detail/Receipt Modal -->
+    <div class="modal" id="billDetailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Detail Tagihan</h3>
+                <button class="modal-close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" id="receiptContainer">
+                <!-- Struk/Receipt akan dirender di sini oleh JavaScript -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline modal-close">Tutup</button>
+                <button class="btn btn-success" id="shareReceiptBtn">
+                    <span class="spinner"></span><span class="btn-text"><i class="fas fa-share-alt"></i> Bagikan Struk</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div class="modal" id="confirmationModal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="confirmationTitle">Konfirmasi</h3>
+            </div>
+            <div class="modal-body">
+                <p id="confirmationMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="cancelConfirmationBtn">Batal</button>
+                <button class="btn btn-danger" id="confirmActionBtn">Ya, Lanjutkan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Customer Modal -->
+    <div class="modal" id="importCustomerModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Impor Pelanggan dari Excel</h3>
+                <button class="modal-close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <p>Siapkan file .xlsx dengan format kolom berikut (baris pertama adalah header):</p>
+                <code>Nama | NomorWhatsApp | Paket</code>
+                <br><br>
+                <p><strong>Penting:</strong> Nama paket di file Excel harus sama persis dengan yang ada di Manajemen Paket.</p>
+                <br>
+                <button class="btn btn-info" id="downloadTemplateBtn"><i class="fas fa-download"></i> Unduh Template</button>
+                <hr style="margin: 20px 0;">
+                <div class="file-input-wrapper">
+                    <button class="btn btn-primary"><i class="fas fa-file-excel"></i> Pilih File Excel</button>
+                    <input type="file" id="importCustomerFileInput" accept=".xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                </div>
+                <p id="xlsxFileName" style="margin-top: 10px;"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline modal-close">Batal</button>
+                <button class="btn btn-success" id="processImportBtn">Proses Impor</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    
+
+
+
+<script src="app.js" defer=""></script><script>
+          if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+              navigator.serviceWorker.register('/service-worker.js')
+                .then(registration => console.log('Service Worker: Registered'))
+                .catch(err => console.error('Service Worker: Registration Failed: ', err));
+            });
+          }</script></body></html>
